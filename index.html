@@ -476,7 +476,7 @@
             width: 100%;
             border-collapse: collapse;
             font-size: 13px;
-            min-width: 1200px;
+            min-width: 1300px;
         }
         th {
             text-align: left;
@@ -534,6 +534,12 @@
             50% {
                 opacity: 0.4;
             }
+        }
+        .date-badge {
+            font-size: 12px;
+            color: #64748b;
+            white-space: nowrap;
+            font-weight: 400;
         }
         .kit-badge {
             padding: 4px 14px;
@@ -1156,16 +1162,17 @@
                         <thead>
                             <tr>
                                 <th style="width:10%;">Назва</th>
-                                <th style="width:20%;">KIT</th>
+                                <th style="width:12%;">Дата</th>
+                                <th style="width:15%;">KIT</th>
                                 <th style="width:10%;">UTID</th>
                                 <th style="width:10%;">Статус</th>
                                 <th style="width:10%;">Виконано</th>
                                 <th style="width:10%;">Порядок</th>
-                                <th style="width:30%;">Дії</th>
+                                <th style="width:23%;">Дії</th>
                             </tr>
                         </thead>
                         <tbody id="tableBody">
-                            <tr><td colspan="7" class="empty"><i class="fas fa-spinner fa-spin"></i> Завантаження...</td></tr>
+                            <tr><td colspan="8" class="empty"><i class="fas fa-spinner fa-spin"></i> Завантаження...</td></tr>
                         </tbody>
                     </table>
                     <div class="drag-instruction" id="dragInstruction">
@@ -1345,8 +1352,16 @@
         function formatTime(ts) { return new Date(ts).toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit',
                 second: '2-digit' }); }
 
-        function formatDate(ts) { return new Date(ts).toLocaleDateString('uk-UA', { day: '2-digit', month: '2-digit',
-                year: 'numeric' }); }
+        function formatDate(ts) {
+            const d = new Date(ts);
+            return d.toLocaleDateString('uk-UA', { day: '2-digit', month: '2-digit', year: 'numeric' }) +
+                ' ' + d.toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' });
+        }
+
+        function formatDateShort(ts) {
+            const d = new Date(ts);
+            return d.toLocaleDateString('uk-UA', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        }
 
         function addLog(msg) {
             logsRef.push({ time: firebase.database.ServerValue.TIMESTAMP, msg })
@@ -1407,7 +1422,8 @@
                 status: 'active',
                 completed: false,
                 createdBy: creator,
-                isNew: false
+                isNew: false,
+                createdAt: firebase.database.ServerValue.TIMESTAMP
             }).then(() => {
                 addLog(`✅ ${roleText} активував KIT "${kitCode}" з буфера на нову заявку "${name.trim()}"`);
                 removeKitFromBuffer(groupKey, kitCode);
@@ -1444,7 +1460,7 @@
             // Якщо в групі немає основного KIT – встановлюємо як основний
             if (!targetGroup.kit) {
                 groupsRef.child(targetKey).update({ kit: kitCode }).catch(err => console.warn('Помилка додавання в буфер:',
-                err));
+                    err));
                 return;
             }
             // Інакше додаємо в buffer-поле
@@ -1491,7 +1507,8 @@
                 completed: false,
                 createdBy: creator,
                 isNew: true,
-                requestAction: action
+                requestAction: action,
+                createdAt: firebase.database.ServerValue.TIMESTAMP
             }).then(() => {
                 addLog(`📨 ${roleText} створив заявку-запит: "${action}" | KIT: ${kit || '—'} | UTID: ${utid || '—'}`);
                 requestActionInput.value = '';
@@ -1522,7 +1539,7 @@
 
             const grouped = {};
             logs.forEach(log => {
-                const date = log.time ? formatDate(log.time) : 'Без дати';
+                const date = log.time ? formatDateShort(log.time) : 'Без дати';
                 if (!grouped[date]) grouped[date] = [];
                 grouped[date].push(log);
             });
@@ -1588,7 +1605,7 @@
 
             if (!keys.length) {
                 tableBody.innerHTML =
-                    `<tr><td colspan="7" class="empty"><i class="fas fa-inbox"></i> Немає заявок. Створіть першу!</td></tr>`;
+                    `<tr><td colspan="8" class="empty"><i class="fas fa-inbox"></i> Немає заявок. Створіть першу!</td></tr>`;
                 return;
             }
 
@@ -1622,6 +1639,7 @@
                 const createdBy = g.createdBy || 'admin';
                 const isNew = g.isNew === true;
                 const requestAction = g.requestAction || '';
+                const createdAt = g.createdAt || null;
 
                 const canManage = isAdmin || createdBy === 'user';
                 const isSpecial = isSpecialGroup(name);
@@ -1707,6 +1725,11 @@
                     completedHtml = '<span style="color:#94a3b8;">—</span>';
                 }
 
+                // Дата
+                const dateHtml = createdAt ?
+                    `<span class="date-badge">${formatDate(createdAt)}</span>` :
+                    `<span style="color:#94a3b8;font-size:12px;">—</span>`;
+
                 let kitHtml = '';
                 if (isSpecial) {
                     const allKits = [];
@@ -1732,7 +1755,6 @@
                                         <i class="fas fa-arrow-right"></i>
                                     </button>`;
                             }
-                            // Для буфера додаємо draggable та data атрибути
                             const draggableAttr = specialType === 'buffer' ? 'draggable="true"' : '';
                             const dataKitAttr = `data-kit="${k}"`;
                             const dataGroupAttr = `data-group="${key}"`;
@@ -1826,6 +1848,7 @@
                 html += `
                     <tr>
                         <td><span class="group-name">${nameDisplay}</span></td>
+                        <td>${dateHtml}</td>
                         <td>${kitHtml}</td>
                         <td>${isSpecial ? '<span style="color:#94a3b8;">—</span>' : utidHtml}</td>
                         <td>${statusHtml}</td>
@@ -1969,7 +1992,8 @@
                     status: targetType === 'deactivated' ? 'deactivated' : 'buffer',
                     completed: false,
                     createdBy: 'system',
-                    isNew: false
+                    isNew: false,
+                    createdAt: firebase.database.ServerValue.TIMESTAMP
                 }).then(() => {
                     groupsRef.child(sourceKey).update({ kit: '', utid: '', isNew: false });
                     addLog(`📦 ${reason || 'Переміщено'} KIT "${kitToMove}" з "${sourceName}" → ${newName}`);
@@ -2303,7 +2327,8 @@
                     status: 'inactive',
                     completed: false,
                     createdBy: creator,
-                    isNew: false
+                    isNew: false,
+                    createdAt: firebase.database.ServerValue.TIMESTAMP
                 }).then(() => {
                     addLog(`➕ ${isAdmin ? 'Адмін' : 'Користувач'} створив заявку "${name}" | KIT: ${kit || 'без'}`);
                     groupNameInput.value = '';
@@ -2444,7 +2469,8 @@
                                 status: 'buffer',
                                 completed: false,
                                 createdBy: 'system',
-                                isNew: false
+                                isNew: false,
+                                createdAt: firebase.database.ServerValue.TIMESTAMP
                             }).then(() => addLog('📦 Створено системну групу "Буфер"'));
                         }
                         if (!hasDeactivated) {
@@ -2456,7 +2482,8 @@
                                 status: 'deactivated',
                                 completed: false,
                                 createdBy: 'system',
-                                isNew: false
+                                isNew: false,
+                                createdAt: firebase.database.ServerValue.TIMESTAMP
                             }).then(() => addLog('🚫 Створено системну групу "Деактивовані"'));
                         }
                     }
