@@ -1,0 +1,2470 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+    <title>StarLink · Service Desk</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛰️</text></svg>" />
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js">
+    </script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js">
+    </script>
+
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+
+    <style>
+        /* ===== СТИЛІ ===== */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+        }
+        body {
+            background: #e8ecf1;
+            min-height: 100vh;
+            padding: 0;
+        }
+        .login-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(10, 14, 23, 0.92);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            backdrop-filter: blur(8px);
+            transition: opacity 0.4s ease;
+        }
+        .login-overlay.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        .login-box {
+            background: linear-gradient(145deg, #1a237e, #0d1445);
+            border-radius: 24px;
+            padding: 32px 28px;
+            max-width: 400px;
+            width: 100%;
+            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            text-align: center;
+        }
+        .login-box .logo {
+            font-size: 48px;
+            color: #64b5f6;
+            margin-bottom: 8px;
+        }
+        .login-box h1 {
+            color: white;
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+        .login-box .subtitle {
+            color: #90caf9;
+            font-size: 14px;
+            margin-bottom: 24px;
+        }
+        .login-box .role-selector {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 20px;
+            justify-content: center;
+        }
+        .login-box .role-btn {
+            padding: 10px 24px;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 12px;
+            background: transparent;
+            color: #94a3b8;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            transition: 0.2s;
+            flex: 1;
+        }
+        .login-box .role-btn.active {
+            border-color: #64b5f6;
+            background: rgba(100, 181, 246, 0.15);
+            color: white;
+        }
+        .login-box .pin-display {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 14px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            min-height: 56px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+        }
+        .login-box .pin-display .pin-dot {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: #2a3650;
+            transition: 0.2s;
+            border: 2px solid #3d5078;
+        }
+        .login-box .pin-display .pin-dot.filled {
+            background: #64b5f6;
+            border-color: #64b5f6;
+            box-shadow: 0 0 12px rgba(100, 181, 246, 0.4);
+        }
+        .login-box .pin-display .pin-label {
+            color: #94a3b8;
+            font-size: 13px;
+            letter-spacing: 2px;
+        }
+        .login-box .numpad {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            max-width: 280px;
+            margin: 0 auto;
+        }
+        .login-box .numpad button {
+            padding: 18px;
+            border: none;
+            border-radius: 14px;
+            font-size: 24px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.15s;
+            background: rgba(255, 255, 255, 0.08);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+        }
+        .login-box .numpad button:active {
+            transform: scale(0.92);
+            background: rgba(255, 255, 255, 0.18);
+        }
+        .login-box .numpad button.btn-clear {
+            background: rgba(220, 38, 38, 0.2);
+            color: #ef4444;
+            border-color: rgba(220, 38, 38, 0.2);
+        }
+        .login-box .numpad button.btn-enter {
+            background: rgba(100, 181, 246, 0.2);
+            color: #64b5f6;
+            border-color: rgba(100, 181, 246, 0.2);
+        }
+        .login-box .error-msg {
+            color: #ef4444;
+            font-size: 13px;
+            margin-top: 12px;
+            min-height: 20px;
+            font-weight: 500;
+        }
+        .login-box .user-info {
+            color: #94a3b8;
+            font-size: 13px;
+            margin-top: 16px;
+            border-top: 1px solid rgba(255, 255, 255, 0.06);
+            padding-top: 16px;
+        }
+        .login-box .user-info strong {
+            color: #e2e8f0;
+        }
+        .app-content {
+            display: none;
+        }
+        .app-content.visible {
+            display: block;
+        }
+
+        .navbar {
+            background: linear-gradient(135deg, #1a237e 0%, #0d1445 100%);
+            padding: 0 24px;
+            height: 64px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+        .navbar-brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: white;
+            font-size: 20px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        }
+        .navbar-brand i {
+            font-size: 28px;
+            color: #64b5f6;
+        }
+        .navbar-brand span {
+            color: #90caf9;
+            font-weight: 400;
+            font-size: 14px;
+            margin-left: 8px;
+        }
+        .navbar-actions {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .navbar-actions .badge-status {
+            background: rgba(255, 255, 255, 0.15);
+            color: #90caf9;
+            padding: 4px 16px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .navbar-actions .badge-status .dot {
+            width: 8px;
+            height: 8px;
+            background: #4caf50;
+            border-radius: 50%;
+            display: inline-block;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%,
+            100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.3;
+            }
+        }
+        .navbar-actions .btn-icon {
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            color: white;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: 0.2s;
+            font-size: 18px;
+        }
+        .navbar-actions .btn-icon:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+        .navbar-actions .user-role-badge {
+            background: rgba(255, 255, 255, 0.12);
+            padding: 4px 16px;
+            border-radius: 20px;
+            color: #e2e8f0;
+            font-size: 12px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .navbar-actions .user-role-badge i {
+            color: #fbbf24;
+        }
+        .navbar-actions .btn-logout {
+            background: rgba(220, 38, 38, 0.2);
+            border: 1px solid rgba(220, 38, 38, 0.2);
+            color: #fca5a5;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .navbar-actions .btn-logout:hover {
+            background: rgba(220, 38, 38, 0.35);
+        }
+        .main-container {
+            max-width: 1440px;
+            margin: 0 auto;
+            padding: 20px 24px;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        .stat-card {
+            background: white;
+            border-radius: 12px;
+            padding: 18px 20px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+            border: 1px solid #e2e8f0;
+            transition: 0.2s;
+        }
+        .stat-card:hover {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            transform: translateY(-2px);
+        }
+        .stat-card .label {
+            font-size: 12px;
+            text-transform: uppercase;
+            color: #64748b;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+        .stat-card .value {
+            font-size: 28px;
+            font-weight: 700;
+            color: #1a237e;
+            margin-top: 4px;
+        }
+        .stat-card .value .sub {
+            font-size: 14px;
+            font-weight: 400;
+            color: #94a3b8;
+            margin-left: 8px;
+        }
+        .stat-card .icon {
+            float: right;
+            font-size: 32px;
+            color: #e2e8f0;
+        }
+        .panel {
+            background: white;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+            margin-bottom: 24px;
+        }
+        .panel-header {
+            padding: 16px 20px;
+            background: #f8fafc;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        .panel-header h2 {
+            font-size: 16px;
+            font-weight: 600;
+            color: #1e293b;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .panel-header h2 i {
+            color: #3b82f6;
+        }
+        .panel-header .controls-toolbar {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .panel-header .controls-toolbar .field {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 4px 12px;
+        }
+        .panel-header .controls-toolbar .field input {
+            border: none;
+            outline: none;
+            padding: 6px 4px;
+            font-size: 13px;
+            width: 120px;
+            background: transparent;
+        }
+        .panel-header .controls-toolbar .field input.request-action {
+            width: 180px;
+        }
+        .panel-header .controls-toolbar .field i {
+            color: #94a3b8;
+            font-size: 14px;
+        }
+        .btn {
+            padding: 8px 18px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 13px;
+            cursor: pointer;
+            transition: 0.15s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            white-space: nowrap;
+        }
+        .btn-primary {
+            background: #1a237e;
+            color: white;
+        }
+        .btn-primary:hover {
+            background: #283593;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(26, 35, 126, 0.3);
+        }
+        .btn-success {
+            background: #059669;
+            color: white;
+        }
+        .btn-success:hover {
+            background: #047857;
+        }
+        .btn-danger {
+            background: #dc2626;
+            color: white;
+        }
+        .btn-danger:hover {
+            background: #b91c1c;
+        }
+        .btn-outline {
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+        .btn-outline:hover {
+            background: #f1f5f9;
+            border-color: #94a3b8;
+        }
+        .btn-warning {
+            background: #f59e0b;
+            color: white;
+        }
+        .btn-warning:hover {
+            background: #d97706;
+        }
+        .btn-sm {
+            padding: 4px 12px;
+            font-size: 12px;
+            border-radius: 6px;
+        }
+        .btn-xs {
+            padding: 3px 10px;
+            font-size: 11px;
+            border-radius: 4px;
+        }
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .table-wrap {
+            overflow-x: auto;
+            padding: 0;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+            min-width: 1200px;
+        }
+        th {
+            text-align: left;
+            padding: 12px 16px;
+            background: #f8fafc;
+            color: #475569;
+            font-weight: 600;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 2px solid #e2e8f0;
+        }
+        td {
+            padding: 10px 16px;
+            border-bottom: 1px solid #f1f5f9;
+            color: #1e293b;
+            vertical-align: middle;
+        }
+        tr:hover td {
+            background: #f8fafc;
+        }
+        tr:last-child td {
+            border-bottom: none;
+        }
+        .group-name {
+            font-weight: 600;
+            color: #0f172a;
+            font-size: 14px;
+        }
+        .group-name .badge-special {
+            font-size: 10px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            margin-left: 4px;
+            font-weight: 400;
+        }
+        .badge-buffer {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+        .badge-deactivated {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        .badge-new {
+            background: #fef3c7;
+            color: #92400e;
+            animation: blink 1.5s infinite;
+        }
+        @keyframes blink {
+            0%,
+            100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.4;
+            }
+        }
+        .kit-badge {
+            padding: 4px 14px;
+            border-radius: 16px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-weight: 500;
+            font-size: 12px;
+            font-family: 'Courier New', monospace;
+            cursor: grab;
+            touch-action: none;
+            transition: all 0.2s;
+            border: 2px solid transparent;
+            min-height: 32px;
+        }
+        .kit-badge:active {
+            cursor: grabbing;
+        }
+        .kit-active {
+            background: #d1fae5;
+            color: #065f46;
+            border-color: #34d399;
+        }
+        .kit-badge.dragging {
+            opacity: 0.5;
+            transform: scale(0.95);
+        }
+        .kit-badge.drag-over {
+            border-color: #3b82f6;
+            background: #dbeafe;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+            transform: scale(1.05);
+        }
+        .drop-zone {
+            display: inline-block;
+            padding: 4px 14px;
+            border-radius: 16px;
+            border: 2px dashed #cbd5e1;
+            color: #94a3b8;
+            font-size: 12px;
+            min-height: 32px;
+            min-width: 100px;
+            text-align: center;
+            transition: all 0.2s;
+            background: #f8fafc;
+        }
+        .drop-zone.drag-over {
+            border-color: #3b82f6;
+            background: #dbeafe;
+            color: #1e293b;
+        }
+        .utid-badge {
+            background: #e0e7ff;
+            color: #4338ca;
+            padding: 2px 12px;
+            border-radius: 12px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            display: inline-block;
+        }
+        .buffer-tag {
+            background: #f1f5f9;
+            color: #475569;
+            padding: 2px 10px;
+            border-radius: 12px;
+            font-family: 'Courier New', monospace;
+            font-size: 11px;
+            display: inline-block;
+            margin: 2px 3px 2px 0;
+            border: 1px solid #e2e8f0;
+        }
+        .buffer-empty {
+            color: #94a3b8;
+            font-size: 12px;
+            font-style: italic;
+        }
+        .status-badge {
+            padding: 4px 14px;
+            border-radius: 16px;
+            font-size: 12px;
+            font-weight: 600;
+            display: inline-block;
+            cursor: pointer;
+            transition: 0.15s;
+            border: 2px solid transparent;
+            user-select: none;
+        }
+        .status-badge:hover {
+            transform: scale(1.05);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        }
+        .status-badge:active {
+            transform: scale(0.95);
+        }
+        .status-active {
+            background: #d1fae5;
+            color: #065f46;
+            border-color: #34d399;
+        }
+        .status-inactive {
+            background: #fee2e2;
+            color: #991b1b;
+            border-color: #f87171;
+        }
+        .status-whitelist {
+            background: #dbeafe;
+            color: #1e40af;
+            border-color: #60a5fa;
+        }
+        .status-buffer {
+            background: #fef3c7;
+            color: #92400e;
+            border-color: #f59e0b;
+        }
+        .status-deactivated {
+            background: #e5e7eb;
+            color: #4b5563;
+            border-color: #9ca3af;
+        }
+        .status-new {
+            background: #fef3c7;
+            color: #92400e;
+            border-color: #f59e0b;
+            animation: blink 1.5s infinite;
+        }
+        .completed-badge {
+            padding: 2px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            display: inline-block;
+            cursor: pointer;
+            transition: 0.15s;
+            user-select: none;
+        }
+        .completed-badge:hover {
+            transform: scale(1.05);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        .completed-badge:active {
+            transform: scale(0.95);
+        }
+        .completed-yes {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        .completed-no {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        .order-badge {
+            background: #fef3c7;
+            color: #92400e;
+            padding: 2px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            display: inline-block;
+        }
+        .action-buttons {
+            display: flex;
+            gap: 4px;
+            flex-wrap: wrap;
+        }
+        .log-area {
+            background: #f8fafc;
+            border-radius: 8px;
+            padding: 12px 16px;
+            border: 1px solid #e2e8f0;
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 8px;
+        }
+        .log-date-group {
+            margin-top: 8px;
+            border-top: 1px solid #e2e8f0;
+            padding-top: 8px;
+        }
+        .log-date-group:first-child {
+            margin-top: 0;
+            border-top: none;
+            padding-top: 0;
+        }
+        .log-date-label {
+            color: #64748b;
+            font-weight: 600;
+            font-size: 12px;
+            padding: 4px 0 6px 0;
+            display: block;
+        }
+        .log-date-label span {
+            background: #e2e8f0;
+            padding: 1px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            margin-left: 6px;
+        }
+        .log-area p {
+            padding: 3px 0;
+            border-bottom: 1px solid #f1f5f9;
+            margin: 0;
+            display: flex;
+            gap: 12px;
+            font-size: 13px;
+            color: #334155;
+        }
+        .log-time {
+            color: #94a3b8;
+            min-width: 80px;
+            font-size: 12px;
+        }
+        .log-msg {
+            color: #1e293b;
+            word-break: break-word;
+        }
+        .flex-between {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .badge-count {
+            background: #e2e8f0;
+            padding: 2px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            color: #475569;
+        }
+        .empty {
+            text-align: center;
+            color: #94a3b8;
+            padding: 40px 0;
+            font-style: italic;
+        }
+        .drag-instruction {
+            color: #94a3b8;
+            font-size: 11px;
+            padding: 6px 0;
+            text-align: center;
+            border-top: 1px solid #e2e8f0;
+            margin-top: 4px;
+        }
+        .validation-error {
+            color: #dc2626;
+            font-size: 11px;
+            margin-top: 2px;
+            display: none;
+        }
+        .validation-error.show {
+            display: block;
+        }
+        .status-menu {
+            position: relative;
+            display: inline-block;
+        }
+        .status-menu .dropdown {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
+            border: 1px solid #e2e8f0;
+            min-width: 180px;
+            z-index: 100;
+            padding: 4px 0;
+            margin-top: 4px;
+        }
+        .status-menu .dropdown.show {
+            display: block;
+        }
+        .status-menu .dropdown .item {
+            padding: 8px 16px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 13px;
+            transition: 0.1s;
+            border: none;
+            background: none;
+            width: 100%;
+            text-align: left;
+            color: #1e293b;
+        }
+        .status-menu .dropdown .item:hover {
+            background: #f1f5f9;
+        }
+        .status-menu .dropdown .item .dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        .status-menu .dropdown .item .dot-active {
+            background: #34d399;
+        }
+        .status-menu .dropdown .item .dot-inactive {
+            background: #f87171;
+        }
+        .status-menu .dropdown .item .dot-whitelist {
+            background: #60a5fa;
+        }
+        .status-menu .dropdown .item .dot-buffer {
+            background: #f59e0b;
+        }
+        .status-menu .dropdown .item .dot-deactivated {
+            background: #9ca3af;
+        }
+        .kit-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            align-items: center;
+        }
+        .kit-list .kit-item {
+            background: #f1f5f9;
+            padding: 2px 12px;
+            border-radius: 16px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            border: 1px solid #cbd5e1;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            cursor: grab;
+            touch-action: none;
+            transition: all 0.2s;
+        }
+        .kit-list .kit-item.buffer-item {
+            background: #dbeafe;
+            border-color: #60a5fa;
+            color: #1e40af;
+        }
+        .kit-list .kit-item.deactivated-item {
+            background: #fee2e2;
+            border-color: #f87171;
+            color: #991b1b;
+        }
+        .kit-list .kit-item.dragging {
+            opacity: 0.5;
+            transform: scale(0.95);
+        }
+        .kit-list .kit-item .activate-btn {
+            background: none;
+            border: none;
+            color: #1e40af;
+            cursor: pointer;
+            font-size: 12px;
+            padding: 0 4px;
+            transition: 0.15s;
+        }
+        .kit-list .kit-item .activate-btn:hover {
+            transform: scale(1.2);
+            color: #1a237e;
+        }
+        @media (max-width: 768px) {
+            .navbar {
+                padding: 0 16px;
+                height: 56px;
+            }
+            .navbar-brand {
+                font-size: 16px;
+            }
+            .navbar-brand span {
+                display: none;
+            }
+            .main-container {
+                padding: 12px;
+            }
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 10px;
+            }
+            .stat-card .value {
+                font-size: 20px;
+            }
+            .panel-header {
+                flex-direction: column;
+                align-items: stretch;
+                padding: 12px 16px;
+            }
+            .panel-header .controls-toolbar {
+                flex-wrap: wrap;
+            }
+            .panel-header .controls-toolbar .field {
+                flex: 1;
+                min-width: 120px;
+            }
+            .panel-header .controls-toolbar .field input {
+                width: 100%;
+            }
+            .btn {
+                padding: 8px 14px;
+                font-size: 12px;
+                width: 100%;
+                justify-content: center;
+            }
+            .btn-sm {
+                width: auto;
+            }
+            td {
+                padding: 8px 10px;
+                font-size: 12px;
+            }
+            th {
+                padding: 8px 10px;
+                font-size: 10px;
+            }
+            .kit-badge {
+                font-size: 11px;
+                padding: 3px 10px;
+                min-height: 28px;
+                min-width: 80px;
+            }
+            .drop-zone {
+                font-size: 11px;
+                padding: 3px 10px;
+                min-height: 28px;
+                min-width: 80px;
+            }
+            .action-buttons .btn {
+                width: auto;
+                font-size: 11px;
+                padding: 4px 10px;
+            }
+            .buffer-tag {
+                font-size: 10px;
+                padding: 1px 8px;
+            }
+            .login-box {
+                padding: 24px 20px;
+                margin: 12px;
+            }
+            .login-box .numpad button {
+                padding: 16px;
+                font-size: 20px;
+            }
+            .kit-list .kit-item {
+                font-size: 11px;
+                padding: 1px 10px;
+            }
+            .panel-header .controls-toolbar .field input.request-action {
+                width: 100%;
+            }
+        }
+        @media (max-width: 480px) {
+            .stats-grid {
+                grid-template-columns: 1fr 1fr;
+                gap: 8px;
+            }
+            .stat-card {
+                padding: 12px 14px;
+            }
+            .stat-card .value {
+                font-size: 18px;
+            }
+            .navbar-brand {
+                font-size: 14px;
+            }
+            .navbar-actions .badge-status {
+                font-size: 10px;
+                padding: 2px 10px;
+            }
+            .navbar-actions .user-role-badge {
+                font-size: 10px;
+                padding: 2px 10px;
+            }
+            .login-box .numpad button {
+                padding: 14px;
+                font-size: 18px;
+            }
+            .login-box .pin-display .pin-dot {
+                width: 12px;
+                height: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- ===== LOGIN ===== -->
+    <div class="login-overlay" id="loginOverlay">
+        <div class="login-box">
+            <div class="logo"><i class="fas fa-satellite"></i></div>
+            <h1>StarLink</h1>
+            <div class="subtitle">Service Desk · Вхід</div>
+            <div class="role-selector">
+                <button class="role-btn active" data-role="admin" id="roleAdmin">
+                    <i class="fas fa-user-shield"></i> Адмін
+                </button>
+                <button class="role-btn" data-role="user" id="roleUser">
+                    <i class="fas fa-user"></i> Користувач
+                </button>
+            </div>
+            <div class="pin-display" id="pinDisplay">
+                <span class="pin-label">Введіть PIN</span>
+                <span class="pin-dot" data-index="0"></span>
+                <span class="pin-dot" data-index="1"></span>
+                <span class="pin-dot" data-index="2"></span>
+                <span class="pin-dot" data-index="3"></span>
+            </div>
+            <div class="numpad" id="numpad">
+                <button data-value="1">1</button>
+                <button data-value="2">2</button>
+                <button data-value="3">3</button>
+                <button data-value="4">4</button>
+                <button data-value="5">5</button>
+                <button data-value="6">6</button>
+                <button data-value="7">7</button>
+                <button data-value="8">8</button>
+                <button data-value="9">9</button>
+                <button class="btn-clear" data-value="clear"><i class="fas fa-undo-alt"></i></button>
+                <button data-value="0">0</button>
+                <button class="btn-enter" data-value="enter"><i class="fas fa-check"></i></button>
+            </div>
+            <div class="error-msg" id="loginError"></div>
+            <div class="user-info">
+                <i class="fas fa-info-circle"></i>
+                <strong>Адмін:</strong> 1234 &nbsp;|&nbsp; <strong>Користувач:</strong> 5678
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== MAIN APP ===== -->
+    <div class="app-content" id="appContent">
+        <nav class="navbar">
+            <div class="navbar-brand">
+                <i class="fas fa-headset"></i>
+                StarLink <span>· Service Desk</span>
+            </div>
+            <div class="navbar-actions">
+                <div class="badge-status">
+                    <span class="dot"></span> Online
+                </div>
+                <div class="user-role-badge" id="userRoleBadge">
+                    <i class="fas fa-user-shield"></i> <span id="userRoleText">Адмін</span>
+                </div>
+                <button class="btn-icon" id="refreshBtn" title="Оновити">
+                    <i class="fas fa-sync-alt"></i>
+                </button>
+                <button class="btn-icon" id="clearLogsBtn" title="Очистити логи">
+                    <i class="fas fa-trash-alt"></i>
+                </button>
+                <button class="btn-logout" id="logoutBtn">
+                    <i class="fas fa-sign-out-alt"></i> Вихід
+                </button>
+            </div>
+        </nav>
+
+        <div class="main-container">
+            <!-- Stats -->
+            <div class="stats-grid" id="statsGrid">
+                <div class="stat-card">
+                    <div class="icon"><i class="fas fa-layer-group"></i></div>
+                    <div class="label">Всього заявок</div>
+                    <div class="value" id="totalGroups">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="icon"><i class="fas fa-check-circle" style="color:#34d399;"></i></div>
+                    <div class="label">Активні KIT</div>
+                    <div class="value" id="activeKits">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="icon"><i class="fas fa-box" style="color:#f59e0b;"></i></div>
+                    <div class="label">В буфері</div>
+                    <div class="value" id="bufferKits">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="icon"><i class="fas fa-ban" style="color:#ef4444;"></i></div>
+                    <div class="label">Деактивовано</div>
+                    <div class="value" id="deactivatedKits">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="icon"><i class="fas fa-clock" style="color:#f59e0b;"></i></div>
+                    <div class="label">Всього логів</div>
+                    <div class="value" id="totalLogs">0</div>
+                </div>
+            </div>
+
+            <!-- Panel -->
+            <div class="panel">
+                <div class="panel-header">
+                    <h2><i class="fas fa-ticket-alt"></i> <span id="panelTitle">Управління заявками</span></h2>
+                    <div class="controls-toolbar" id="createForm">
+                        <div class="field">
+                            <i class="fas fa-tag"></i>
+                            <input type="text" id="groupNameInput" placeholder="Назва" value="Заявка 1" />
+                        </div>
+                        <div class="field">
+                            <i class="fas fa-key"></i>
+                            <input type="text" id="kitCodeInput" placeholder="KIT" value="KIT00000001" />
+                        </div>
+                        <div class="field">
+                            <i class="fas fa-id-card"></i>
+                            <input type="text" id="utidInput" placeholder="UTID" value="UTID-0001" />
+                        </div>
+                        <button class="btn btn-primary" id="addGroupBtn">
+                            <i class="fas fa-plus"></i> Створити
+                        </button>
+
+                        <!-- Нова секція для запитів -->
+                        <div style="display:flex; gap:6px; align-items:center; border-left:2px solid #e2e8f0; padding-left:10px;">
+                            <div class="field" style="border-color:#f59e0b;">
+                                <i class="fas fa-pen" style="color:#f59e0b;"></i>
+                                <input type="text" id="requestActionInput" class="request-action" placeholder="Дія (текст)" />
+                            </div>
+                            <button class="btn btn-warning" id="addRequestBtn">
+                                <i class="fas fa-inbox"></i> Запит
+                            </button>
+                        </div>
+                    </div>
+                    <div class="validation-error" id="kitError">❌ Невірний формат KIT (KIT + 8 цифр)</div>
+                </div>
+
+                <div class="table-wrap" id="tableWrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th style="width:10%;">Назва</th>
+                                <th style="width:20%;">KIT</th>
+                                <th style="width:10%;">UTID</th>
+                                <th style="width:10%;">Статус</th>
+                                <th style="width:10%;">Виконано</th>
+                                <th style="width:10%;">Порядок</th>
+                                <th style="width:30%;">Дії</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableBody">
+                            <tr><td colspan="7" class="empty"><i class="fas fa-spinner fa-spin"></i> Завантаження...</td></tr>
+                        </tbody>
+                    </table>
+                    <div class="drag-instruction" id="dragInstruction">
+                        <i class="fas fa-arrows-alt"></i> Перетягніть KIT на іншу заявку або в буфер/деактивовані
+                    </div>
+                </div>
+            </div>
+
+            <!-- Logs -->
+            <div class="panel" style="border-color:#e2e8f0;">
+                <div class="panel-header" style="background:#f8fafc; border-bottom:1px solid #e2e8f0;">
+                    <h2 style="font-size:14px;"><i class="fas fa-history"></i> Журнал подій</h2>
+                    <span class="badge-count" id="logCount">0 записів</span>
+                </div>
+                <div style="padding:12px 16px 16px 16px;">
+                    <div class="log-area" id="logContainer">
+                        <p style="color:#94a3b8; justify-content:center;">Логи з'являться тут</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // =====================================================
+        // AUTH (без змін)
+        // =====================================================
+        const PIN_LENGTH = 4;
+        let currentRole = 'admin';
+        let enteredPin = '';
+        let isAuthenticated = false;
+        const PASSWORDS = { admin: '1234', user: '5678' };
+
+        const loginOverlay = document.getElementById('loginOverlay');
+        const appContent = document.getElementById('appContent');
+        const pinDisplay = document.getElementById('pinDisplay');
+        const loginError = document.getElementById('loginError');
+        const roleAdmin = document.getElementById('roleAdmin');
+        const roleUser = document.getElementById('roleUser');
+        const userRoleText = document.getElementById('userRoleText');
+        const userRoleBadge = document.getElementById('userRoleBadge');
+
+        function updatePinDisplay() {
+            document.querySelectorAll('.pin-dot').forEach((dot, i) => {
+                dot.classList.toggle('filled', i < enteredPin.length);
+            });
+        }
+
+        function setRole(role) {
+            currentRole = role;
+            document.querySelectorAll('.role-btn').forEach(b => b.classList.remove('active'));
+            if (role === 'admin') roleAdmin.classList.add('active');
+            else roleUser.classList.add('active');
+            enteredPin = '';
+            updatePinDisplay();
+            loginError.textContent = '';
+        }
+        roleAdmin.addEventListener('click', () => setRole('admin'));
+        roleUser.addEventListener('click', () => setRole('user'));
+
+        function handlePinInput(value) {
+            if (isAuthenticated) return;
+            if (value === 'clear') {
+                enteredPin = enteredPin.slice(0, -1);
+                updatePinDisplay();
+                loginError.textContent = '';
+                return;
+            }
+            if (value === 'enter') {
+                if (enteredPin === PASSWORDS[currentRole]) {
+                    isAuthenticated = true;
+                    loginOverlay.classList.add('hidden');
+                    appContent.classList.add('visible');
+                    userRoleText.textContent = currentRole === 'admin' ? 'Адмін' : 'Користувач';
+                    userRoleBadge.innerHTML = currentRole === 'admin' ?
+                        '<i class="fas fa-user-shield"></i> Адмін' :
+                        '<i class="fas fa-user"></i> Користувач';
+                    addLog(`🔐 Увійшов ${currentRole === 'admin' ? 'адміністратор' : 'користувач'}`);
+                    initApp();
+                    loginError.textContent = '';
+                } else {
+                    loginError.textContent = '❌ Невірний PIN!';
+                    enteredPin = '';
+                    updatePinDisplay();
+                }
+                return;
+            }
+            if (enteredPin.length < PIN_LENGTH) {
+                enteredPin += value;
+                updatePinDisplay();
+                loginError.textContent = '';
+            }
+        }
+
+        document.querySelectorAll('.numpad button').forEach(btn => {
+            btn.addEventListener('click', () => { const v = btn.dataset.value; if (v) handlePinInput(v); });
+            btn.addEventListener('touchstart', (e) => { const v = btn.dataset.value; if (v) handlePinInput(v); });
+        });
+        document.addEventListener('keydown', (e) => {
+            if (isAuthenticated) return;
+            if (e.key >= '0' && e.key <= '9') handlePinInput(e.key);
+            else if (e.key === 'Backspace') handlePinInput('clear');
+            else if (e.key === 'Enter') handlePinInput('enter');
+        });
+
+        // =====================================================
+        // FIREBASE
+        // =====================================================
+        const firebaseConfig = {
+            apiKey: "AIzaSyBL-IWpRXFZVuyC81Sz3kQcwd2nTW7x-JM",
+            authDomain: "bd-trasn.firebaseapp.com",
+            databaseURL: "https://bd-trasn-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "bd-trasn",
+            storageBucket: "bd-trasn.firebasestorage.app",
+            messagingSenderId: "144798919626",
+            appId: "1:144798919626:web:d611fa9687c0bc0ae0bd33"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+        const groupsRef = db.ref('groups');
+        const logsRef = db.ref('logs');
+
+        // =====================================================
+        // DOM
+        // =====================================================
+        const tableBody = document.getElementById('tableBody');
+        const groupNameInput = document.getElementById('groupNameInput');
+        const kitCodeInput = document.getElementById('kitCodeInput');
+        const utidInput = document.getElementById('utidInput');
+        const requestActionInput = document.getElementById('requestActionInput');
+        const kitError = document.getElementById('kitError');
+        const addBtn = document.getElementById('addGroupBtn');
+        const addRequestBtn = document.getElementById('addRequestBtn');
+        const refreshBtn = document.getElementById('refreshBtn');
+        const clearLogsBtn = document.getElementById('clearLogsBtn');
+        const logoutBtn = document.getElementById('logoutBtn');
+        const logContainer = document.getElementById('logContainer');
+        const logCountSpan = document.getElementById('logCount');
+        const totalGroupsEl = document.getElementById('totalGroups');
+        const activeKitsEl = document.getElementById('activeKits');
+        const bufferKitsEl = document.getElementById('bufferKits');
+        const deactivatedKitsEl = document.getElementById('deactivatedKits');
+        const totalLogsEl = document.getElementById('totalLogs');
+        const panelTitle = document.getElementById('panelTitle');
+        const dragInstruction = document.getElementById('dragInstruction');
+
+        let groupsData = {};
+        let isAdmin = false;
+        let currentOpenStatusMenu = null;
+        let draggedKitCode = null; // для drag&drop з буфера
+
+        // =====================================================
+        // Валідація
+        // =====================================================
+        function validateKit(kit) { return /^KIT\d{8}$/.test(kit); }
+
+        function showKitError(show) {
+            kitError.classList.toggle('show', show);
+            kitCodeInput.classList.toggle('error', show);
+        }
+
+        kitCodeInput.addEventListener('input', function() {
+            const val = this.value.trim().toUpperCase();
+            showKitError(!!val && !validateKit(val));
+        });
+        kitCodeInput.addEventListener('blur', function() {
+            let val = this.value.trim().toUpperCase();
+            if (val && !val.startsWith('KIT')) val = 'KIT' + val;
+            if (val && !validateKit(val)) showKitError(true);
+            else { showKitError(false);
+                this.value = val; }
+        });
+
+        // =====================================================
+        // Helpers
+        // =====================================================
+        function formatTime(ts) { return new Date(ts).toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit',
+                second: '2-digit' }); }
+
+        function formatDate(ts) { return new Date(ts).toLocaleDateString('uk-UA', { day: '2-digit', month: '2-digit',
+                year: 'numeric' }); }
+
+        function addLog(msg) {
+            logsRef.push({ time: firebase.database.ServerValue.TIMESTAMP, msg })
+                .catch(err => console.warn('LOG ERROR:', err));
+        }
+
+        const SPECIAL_GROUPS = {
+            BUFFER: '📦 Буфер',
+            DEACTIVATED: '🚫 Деактивовані'
+        };
+
+        function isSpecialGroup(name) {
+            return name === SPECIAL_GROUPS.BUFFER || name === SPECIAL_GROUPS.DEACTIVATED;
+        }
+
+        function getSpecialGroupType(name) {
+            if (name === SPECIAL_GROUPS.BUFFER) return 'buffer';
+            if (name === SPECIAL_GROUPS.DEACTIVATED) return 'deactivated';
+            return null;
+        }
+
+        // =====================================================
+        // АКТИВАЦІЯ KIT З БУФЕРА НА НОВУ ЗАЯВКУ (через кнопку)
+        // =====================================================
+        function activateFromBuffer(groupKey, kitCode) {
+            const group = groupsData[groupKey];
+            if (!group) {
+                alert('Групу не знайдено!');
+                return;
+            }
+            const allKits = [];
+            if (group.kit) allKits.push(group.kit);
+            if (group.buffer) {
+                const items = group.buffer.split(',').map(s => s.trim()).filter(s => s.length > 0);
+                allKits.push(...items);
+            }
+            if (!allKits.includes(kitCode)) {
+                alert('KIT не знайдено в буфері!');
+                return;
+            }
+
+            const name = prompt('Введіть назву нової заявки:', `Заявка з ${kitCode}`);
+            if (name === null) return;
+            if (!name.trim()) {
+                alert('Назва не може бути порожньою!');
+                return;
+            }
+            const utid = prompt('Введіть UTID (опціонально):', '');
+            const utidValue = utid !== null ? utid.trim() : '';
+
+            const creator = isAdmin ? 'admin' : 'user';
+            const roleText = isAdmin ? 'Адмін' : 'Користувач';
+
+            groupsRef.push({
+                name: name.trim(),
+                kit: kitCode,
+                utid: utidValue,
+                status: 'active',
+                completed: false,
+                createdBy: creator,
+                isNew: false
+            }).then(() => {
+                addLog(`✅ ${roleText} активував KIT "${kitCode}" з буфера на нову заявку "${name.trim()}"`);
+                removeKitFromBuffer(groupKey, kitCode);
+            }).catch(err => alert('Помилка створення заявки: ' + err.message));
+        }
+
+        function removeKitFromBuffer(groupKey, kitCode) {
+            const group = groupsData[groupKey];
+            if (!group) return;
+            const updates = {};
+            let modified = false;
+            if (group.kit === kitCode) {
+                updates.kit = '';
+                modified = true;
+            }
+            if (group.buffer) {
+                const items = group.buffer.split(',').map(s => s.trim()).filter(s => s.length > 0);
+                const idx = items.indexOf(kitCode);
+                if (idx !== -1) {
+                    items.splice(idx, 1);
+                    updates.buffer = items.join(', ');
+                    modified = true;
+                }
+            }
+            if (modified) {
+                groupsRef.child(groupKey).update(updates).catch(err => console.warn('Помилка оновлення буфера:', err));
+            }
+        }
+
+        // Додати KIT в буфер (в спеціальну групу)
+        function addKitToBuffer(targetKey, kitCode) {
+            const targetGroup = groupsData[targetKey];
+            if (!targetGroup) return;
+            // Якщо в групі немає основного KIT – встановлюємо як основний
+            if (!targetGroup.kit) {
+                groupsRef.child(targetKey).update({ kit: kitCode }).catch(err => console.warn('Помилка додавання в буфер:',
+                err));
+                return;
+            }
+            // Інакше додаємо в buffer-поле
+            let currentBuffer = targetGroup.buffer || '';
+            const items = currentBuffer.split(',').map(s => s.trim()).filter(s => s.length > 0);
+            if (!items.includes(kitCode)) {
+                items.push(kitCode);
+                groupsRef.child(targetKey).update({ buffer: items.join(', ') }).catch(err => console.warn(
+                    'Помилка додавання в буфер:', err));
+            }
+        }
+
+        // =====================================================
+        // СТВОРЕННЯ ЗАПИТУ (нова заявка)
+        // =====================================================
+        function addRequest() {
+            const kit = kitCodeInput.value.trim().toUpperCase();
+            const utid = utidInput.value.trim();
+            const action = requestActionInput.value.trim();
+
+            if (!kit && !utid) {
+                alert('Введіть хоча б KIT або UTID!');
+                return;
+            }
+            if (!action) {
+                alert('Введіть текст дії (що зробити з заявкою)!');
+                return;
+            }
+            if (kit && !validateKit(kit)) {
+                showKitError(true);
+                alert('Невірний формат KIT!');
+                return;
+            }
+
+            const name = action.length > 30 ? action.substring(0, 30) + '…' : action;
+            const creator = isAdmin ? 'admin' : 'user';
+            const roleText = isAdmin ? 'Адмін' : 'Користувач';
+
+            groupsRef.push({
+                name: name,
+                kit: kit || '',
+                utid: utid || '',
+                status: 'new',
+                completed: false,
+                createdBy: creator,
+                isNew: true,
+                requestAction: action
+            }).then(() => {
+                addLog(`📨 ${roleText} створив заявку-запит: "${action}" | KIT: ${kit || '—'} | UTID: ${utid || '—'}`);
+                requestActionInput.value = '';
+                kitCodeInput.value = '';
+                utidInput.value = '';
+                showKitError(false);
+            }).catch(err => alert('Помилка створення запиту: ' + err.message));
+        }
+
+        addRequestBtn.addEventListener('click', addRequest);
+        requestActionInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') addRequest(); });
+
+        // =====================================================
+        // Render
+        // =====================================================
+        function renderLogs(snapshot) {
+            const logs = [];
+            snapshot.forEach(c => logs.push({ key: c.key, ...c.val() }));
+            logs.sort((a, b) => (a.time || 0) - (b.time || 0));
+
+            logContainer.innerHTML = '';
+            if (!logs.length) {
+                logContainer.innerHTML = '<p style="color:#94a3b8; justify-content:center;">Логів поки немає</p>';
+                logCountSpan.textContent = '0 записів';
+                totalLogsEl.textContent = '0';
+                return;
+            }
+
+            const grouped = {};
+            logs.forEach(log => {
+                const date = log.time ? formatDate(log.time) : 'Без дати';
+                if (!grouped[date]) grouped[date] = [];
+                grouped[date].push(log);
+            });
+
+            let html = '';
+            Object.keys(grouped).sort((a, b) => {
+                if (a === 'Без дати') return 1;
+                if (b === 'Без дати') return -1;
+                return a.split('.').reverse().join('-').localeCompare(b.split('.').reverse().join('-'));
+            }).forEach(date => {
+                const items = grouped[date];
+                html += `<div class="log-date-group">
+                    <div class="log-date-label">📅 ${date} <span>${items.length}</span></div>`;
+                items.forEach(log => {
+                    html += `<p>
+                        <span class="log-time">${log.time ? formatTime(log.time) : '--:--:--'}</span>
+                        <span class="log-msg">${log.msg || ''}</span>
+                    </p>`;
+                });
+                html += `</div>`;
+            });
+
+            logContainer.innerHTML = html;
+            logCountSpan.textContent = `${logs.length} записів`;
+            totalLogsEl.textContent = logs.length;
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        function renderGroups(snapshot) {
+            const data = snapshot.val();
+            groupsData = data || {};
+            const keys = Object.keys(groupsData);
+
+            // Статистика
+            let activeCount = 0,
+                bufferCount = 0,
+                deactivatedCount = 0;
+            keys.forEach(k => {
+                const g = groupsData[k];
+                const name = g.name || k;
+                if (isSpecialGroup(name)) {
+                    if (name === SPECIAL_GROUPS.BUFFER) {
+                        if (g.kit) bufferCount++;
+                        if (g.buffer) {
+                            const items = g.buffer.split(',').filter(s => s.trim());
+                            bufferCount += items.length;
+                        }
+                    } else if (name === SPECIAL_GROUPS.DEACTIVATED) {
+                        if (g.kit) deactivatedCount++;
+                        if (g.buffer) {
+                            const items = g.buffer.split(',').filter(s => s.trim());
+                            deactivatedCount += items.length;
+                        }
+                    }
+                } else {
+                    if (g.kit) activeCount++;
+                }
+            });
+            totalGroupsEl.textContent = keys.length;
+            activeKitsEl.textContent = activeCount;
+            bufferKitsEl.textContent = bufferCount;
+            deactivatedKitsEl.textContent = deactivatedCount;
+
+            if (!keys.length) {
+                tableBody.innerHTML =
+                    `<tr><td colspan="7" class="empty"><i class="fas fa-inbox"></i> Немає заявок. Створіть першу!</td></tr>`;
+                return;
+            }
+
+            const sortedKeys = [...keys].sort((a, b) => {
+                const gA = groupsData[a];
+                const gB = groupsData[b];
+                const nameA = gA?.name || a;
+                const nameB = gB?.name || b;
+                const isSpecialA = isSpecialGroup(nameA);
+                const isSpecialB = isSpecialGroup(nameB);
+
+                const isNewA = gA?.isNew === true;
+                const isNewB = gB?.isNew === true;
+                if (isNewA && !isNewB) return -1;
+                if (!isNewA && isNewB) return 1;
+
+                if (isSpecialA && !isSpecialB) return 1;
+                if (!isSpecialA && isSpecialB) return -1;
+
+                return nameA.localeCompare(nameB);
+            });
+
+            let html = '';
+            sortedKeys.forEach((key, idx) => {
+                const g = groupsData[key];
+                const name = g.name || key;
+                const kit = g.kit || '';
+                const utid = g.utid || '';
+                const status = g.status || 'inactive';
+                const completed = g.completed || false;
+                const createdBy = g.createdBy || 'admin';
+                const isNew = g.isNew === true;
+                const requestAction = g.requestAction || '';
+
+                const canManage = isAdmin || createdBy === 'user';
+                const isSpecial = isSpecialGroup(name);
+                const specialType = getSpecialGroupType(name);
+
+                let displayStatus = status;
+                if (isSpecial) {
+                    if (specialType === 'buffer') displayStatus = 'buffer';
+                    else if (specialType === 'deactivated') displayStatus = 'deactivated';
+                }
+                if (isNew && !isSpecial) displayStatus = 'new';
+
+                const statusMap = {
+                    'active': '<span class="status-badge status-active">Активний</span>',
+                    'inactive': '<span class="status-badge status-inactive">Неактивний</span>',
+                    'whitelist': '<span class="status-badge status-whitelist">Білий список</span>',
+                    'buffer': '<span class="status-badge status-buffer">📦 Буфер</span>',
+                    'deactivated': '<span class="status-badge status-deactivated">🚫 Деактивовано</span>',
+                    'new': '<span class="status-badge status-new">🆕 Нова</span>'
+                };
+
+                let statusHtml = statusMap[displayStatus] || statusMap['inactive'];
+                if (!isSpecial && canManage && isAdmin && !isNew) {
+                    statusHtml =
+                        `<div class="status-menu" data-key="${key}">
+                            <span class="status-badge ${displayStatus === 'active' ? 'status-active' : displayStatus === 'whitelist' ? 'status-whitelist' : 'status-inactive'}" 
+                                  onclick="toggleStatusMenu('${key}')">
+                                ${displayStatus === 'active' ? 'Активний' : displayStatus === 'whitelist' ? 'Білий список' : 'Неактивний'}
+                            </span>
+                            <div class="dropdown" id="statusMenu_${key}">
+                                <button class="item" data-status="active" onclick="changeStatus('${key}','active')">
+                                    <span class="dot dot-active"></span> Активний
+                                </button>
+                                <button class="item" data-status="inactive" onclick="changeStatus('${key}','inactive')">
+                                    <span class="dot dot-inactive"></span> Неактивний
+                                </button>
+                                <button class="item" data-status="whitelist" onclick="changeStatus('${key}','whitelist')">
+                                    <span class="dot dot-whitelist"></span> Білий список
+                                </button>
+                                <hr style="margin:4px 8px;border-color:#e2e8f0;">
+                                <button class="item" data-status="buffer" onclick="changeStatus('${key}','buffer')">
+                                    <span class="dot dot-buffer"></span> 📦 Буфер
+                                </button>
+                                <button class="item" data-status="deactivated" onclick="changeStatus('${key}','deactivated')">
+                                    <span class="dot dot-deactivated"></span> 🚫 Деактивований
+                                </button>
+                            </div>
+                        </div>`;
+                } else if (isNew && isAdmin && !isSpecial) {
+                    statusHtml =
+                        `<div class="status-menu" data-key="${key}">
+                            <span class="status-badge status-new" onclick="toggleStatusMenu('${key}')">
+                                🆕 Нова
+                            </span>
+                            <div class="dropdown" id="statusMenu_${key}">
+                                <button class="item" data-status="active" onclick="changeStatus('${key}','active')">
+                                    <span class="dot dot-active"></span> Активний
+                                </button>
+                                <button class="item" data-status="inactive" onclick="changeStatus('${key}','inactive')">
+                                    <span class="dot dot-inactive"></span> Неактивний
+                                </button>
+                                <button class="item" data-status="whitelist" onclick="changeStatus('${key}','whitelist')">
+                                    <span class="dot dot-whitelist"></span> Білий список
+                                </button>
+                                <button class="item" data-status="buffer" onclick="changeStatus('${key}','buffer')">
+                                    <span class="dot dot-buffer"></span> 📦 Буфер
+                                </button>
+                                <button class="item" data-status="deactivated" onclick="changeStatus('${key}','deactivated')">
+                                    <span class="dot dot-deactivated"></span> 🚫 Деактивований
+                                </button>
+                            </div>
+                        </div>`;
+                }
+
+                let completedHtml = completed ?
+                    '<span class="completed-badge completed-yes">✅ Виконано</span>' :
+                    '<span class="completed-badge completed-no">⏳ Не виконано</span>';
+                if (isAdmin && !isSpecial) {
+                    completedHtml = completed ?
+                        `<span class="completed-badge completed-yes" onclick="toggleCompleted('${key}')">✅ Виконано</span>` :
+                        `<span class="completed-badge completed-no" onclick="toggleCompleted('${key}')">⏳ Не виконано</span>`;
+                } else if (isSpecial) {
+                    completedHtml = '<span style="color:#94a3b8;">—</span>';
+                }
+
+                let kitHtml = '';
+                if (isSpecial) {
+                    const allKits = [];
+                    if (kit) allKits.push(kit);
+                    if (g.buffer) {
+                        const bufferItems = g.buffer.split(',').map(s => s.trim()).filter(s => s.length > 0);
+                        bufferItems.forEach(item => allKits.push(item));
+                    }
+                    if (allKits.length === 0) {
+                        kitHtml = `<span class="buffer-empty">порожньо</span>`;
+                    } else {
+                        const classMap = {
+                            'buffer': 'buffer-item',
+                            'deactivated': 'deactivated-item'
+                        };
+                        const itemClass = classMap[specialType] || '';
+                        kitHtml = `<div class="kit-list">`;
+                        allKits.forEach(k => {
+                            let extraBtn = '';
+                            if (specialType === 'buffer') {
+                                extraBtn =
+                                    `<button class="activate-btn" title="Активувати на нову заявку" onclick="activateFromBuffer('${key}','${k}')">
+                                        <i class="fas fa-arrow-right"></i>
+                                    </button>`;
+                            }
+                            // Для буфера додаємо draggable та data атрибути
+                            const draggableAttr = specialType === 'buffer' ? 'draggable="true"' : '';
+                            const dataKitAttr = `data-kit="${k}"`;
+                            const dataGroupAttr = `data-group="${key}"`;
+                            kitHtml +=
+                                `<span class="kit-item ${itemClass}" ${draggableAttr} ${dataKitAttr} ${dataGroupAttr}>${k} ${extraBtn}</span>`;
+                        });
+                        kitHtml += `</div>`;
+                    }
+                } else {
+                    if (kit) {
+                        kitHtml =
+                            `<span class="kit-badge kit-active" data-key="${key}" draggable="true">
+                                <i class="fas fa-check-circle"></i> ${kit}
+                            </span>`;
+                    } else {
+                        kitHtml =
+                            `<span class="drop-zone" data-key="${key}">
+                                <i class="fas fa-arrow-right"></i> ${isAdmin ? 'Перетягніть' : 'Немає'}
+                            </span>`;
+                    }
+                }
+
+                const utidHtml = utid ? `<span class="utid-badge">${utid}</span>` :
+                    `<span style="color:#94a3b8;">—</span>`;
+
+                let actionsHtml = '';
+                if (isAdmin) {
+                    if (!isSpecial) {
+                        actionsHtml += `
+                            <div class="action-buttons">
+                                <button class="btn btn-outline btn-xs" data-key="${key}" data-action="editKit"><i class="fas fa-key"></i></button>
+                                <button class="btn btn-outline btn-xs" data-key="${key}" data-action="editUtid"><i class="fas fa-id-card"></i></button>
+                                <button class="btn btn-danger btn-xs" data-key="${key}" data-action="delete"><i class="fas fa-trash"></i></button>
+                            </div>
+                        `;
+                        if (isNew) {
+                            actionsHtml += `
+                                <button class="btn btn-success btn-xs" style="margin-top:4px;" data-key="${key}" data-action="acceptNew">
+                                    <i class="fas fa-check"></i> Прийняти
+                                </button>
+                            `;
+                        }
+                    } else {
+                        actionsHtml += `
+                            <div class="action-buttons">
+                                <button class="btn btn-outline btn-xs" data-key="${key}" data-action="clearSpecial">
+                                    <i class="fas fa-eraser"></i> Очистити
+                                </button>
+                                <button class="btn btn-danger btn-xs" data-key="${key}" data-action="delete"><i class="fas fa-trash"></i></button>
+                            </div>
+                        `;
+                    }
+                } else {
+                    if (canManage && !isSpecial) {
+                        actionsHtml += `
+                            <div class="action-buttons">
+                                <button class="btn btn-danger btn-xs" data-key="${key}" data-action="userDelete"><i class="fas fa-trash"></i></button>
+                            </div>
+                        `;
+                    } else if (isSpecial) {
+                        actionsHtml = `<span style="color:#94a3b8;font-size:11px;">системна</span>`;
+                    } else {
+                        actionsHtml = `<span style="color:#94a3b8;font-size:11px;">(чужа)</span>`;
+                    }
+                }
+
+                let nameDisplay = name;
+                if (isSpecial && specialType === 'buffer') {
+                    const count = kit ? 1 : 0;
+                    const bufferItems = g.buffer ? g.buffer.split(',').filter(s => s.trim()).length : 0;
+                    nameDisplay =
+                        `${name} <span class="badge-special badge-buffer">${count + bufferItems} KIT</span>`;
+                } else if (isSpecial && specialType === 'deactivated') {
+                    const count = kit ? 1 : 0;
+                    const bufferItems = g.buffer ? g.buffer.split(',').filter(s => s.trim()).length : 0;
+                    nameDisplay =
+                        `${name} <span class="badge-special badge-deactivated">${count + bufferItems} KIT</span>`;
+                } else if (isNew && !isSpecial) {
+                    nameDisplay =
+                        `${name} <span class="badge-special badge-new">🆕 Нова</span>`;
+                    if (requestAction) {
+                        nameDisplay +=
+                            ` <span style="font-size:11px;color:#94a3b8;font-weight:400;">(дія: ${requestAction})</span>`;
+                    }
+                }
+
+                const nextIdx = (idx + 1) % sortedKeys.length;
+                const nextName = groupsData[sortedKeys[nextIdx]]?.name || sortedKeys[nextIdx];
+                const orderDisplay = `→ ${nextName}`;
+
+                html += `
+                    <tr>
+                        <td><span class="group-name">${nameDisplay}</span></td>
+                        <td>${kitHtml}</td>
+                        <td>${isSpecial ? '<span style="color:#94a3b8;">—</span>' : utidHtml}</td>
+                        <td>${statusHtml}</td>
+                        <td>${completedHtml}</td>
+                        <td><span class="order-badge"><i class="fas fa-arrow-right"></i> ${nextName}</span></td>
+                        <td>${actionsHtml}</td>
+                    </tr>
+                `;
+            });
+
+            tableBody.innerHTML = html;
+
+            if (isAdmin) {
+                tableBody.querySelectorAll('[data-action="editKit"]').forEach(b => b.addEventListener('click', () => editKit(b
+                    .dataset.key)));
+                tableBody.querySelectorAll('[data-action="editUtid"]').forEach(b => b.addEventListener('click', () =>
+                    editUtid(b.dataset.key)));
+                tableBody.querySelectorAll('[data-action="delete"]').forEach(b => b.addEventListener('click', () =>
+                    deleteGroup(b.dataset.key)));
+                tableBody.querySelectorAll('[data-action="clearSpecial"]').forEach(b => b.addEventListener('click', () =>
+                    clearSpecialGroup(b.dataset.key)));
+                tableBody.querySelectorAll('[data-action="acceptNew"]').forEach(b => b.addEventListener('click', () =>
+                    acceptNewRequest(b.dataset.key)));
+            } else {
+                tableBody.querySelectorAll('[data-action="userDelete"]').forEach(b => b.addEventListener('click', () =>
+                    userDeleteGroup(b.dataset.key)));
+            }
+
+            setupDragDrop();
+            document.querySelectorAll('.dropdown.show').forEach(el => el.classList.remove('show'));
+            currentOpenStatusMenu = null;
+        }
+
+        // =====================================================
+        // Прийняти нову заявку (зняти isNew)
+        // =====================================================
+        function acceptNewRequest(key) {
+            if (!isAdmin) return;
+            const g = groupsData[key];
+            if (!g) return;
+            if (!g.isNew) return;
+            groupsRef.child(key).update({ isNew: false, status: 'inactive' }).then(() => {
+                addLog(`✅ Адмін прийняв нову заявку "${g.name || key}"`);
+            }).catch(err => alert('Помилка: ' + err.message));
+        }
+
+        // =====================================================
+        // Status Menu (тільки для адміна)
+        // =====================================================
+        window.toggleStatusMenu = function(key) {
+            if (!isAdmin) return;
+            const menu = document.getElementById(`statusMenu_${key}`);
+            if (!menu) return;
+            document.querySelectorAll('.dropdown.show').forEach(el => {
+                if (el.id !== `statusMenu_${key}`) el.classList.remove('show');
+            });
+            menu.classList.toggle('show');
+            currentOpenStatusMenu = menu.classList.contains('show') ? key : null;
+        };
+
+        window.changeStatus = function(key, newStatus) {
+            if (!isAdmin) return;
+            const g = groupsData[key];
+            if (!g) return;
+            const name = g.name || key;
+
+            if (newStatus === 'buffer' || newStatus === 'deactivated') {
+                if (!g.kit) {
+                    alert('Немає KIT для переміщення!');
+                    return;
+                }
+                const targetType = newStatus === 'buffer' ? 'buffer' : 'deactivated';
+                moveKitToSpecialGroup(key, targetType, `Адмін змінив статус на ${newStatus}`);
+                groupsRef.child(key).update({ isNew: false });
+                const menu = document.getElementById(`statusMenu_${key}`);
+                if (menu) menu.classList.remove('show');
+                currentOpenStatusMenu = null;
+                return;
+            }
+
+            const updates = { status: newStatus };
+            if (g.isNew) updates.isNew = false;
+            groupsRef.child(key).update(updates).then(() => {
+                const statusMap = { 'active': 'Активний', 'inactive': 'Неактивний', 'whitelist': 'Білий список' };
+                addLog(`🔧 Адмін змінив статус для "${name}" на ${statusMap[newStatus]}`);
+            }).catch(err => alert('Помилка: ' + err.message));
+
+            const menu = document.getElementById(`statusMenu_${key}`);
+            if (menu) menu.classList.remove('show');
+            currentOpenStatusMenu = null;
+        };
+
+        window.toggleCompleted = function(key) {
+            if (!isAdmin) return;
+            const g = groupsData[key];
+            if (!g) return;
+            if (isSpecialGroup(g.name)) {
+                alert('Це системна група!');
+                return;
+            }
+            const newVal = !g.completed;
+            groupsRef.child(key).update({ completed: newVal }).then(() => {
+                addLog(`✅ Адмін відмітив "${g.name || key}" як ${newVal ? 'виконано' : 'не виконано'}`);
+            }).catch(err => alert('Помилка: ' + err.message));
+        };
+
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('.status-menu')) {
+                document.querySelectorAll('.dropdown.show').forEach(el => el.classList.remove('show'));
+                currentOpenStatusMenu = null;
+            }
+        });
+
+        // =====================================================
+        // Переміщення KIT в спеціальну групу
+        // =====================================================
+        function moveKitToSpecialGroup(sourceKey, targetType, reason) {
+            if (!isAdmin) return;
+            const src = groupsData[sourceKey];
+            if (!src || !src.kit) return;
+
+            const kitToMove = src.kit;
+            const utidToMove = src.utid || '';
+            const sourceName = src.name || sourceKey;
+
+            const targetKey = Object.keys(groupsData).find(k => {
+                const g = groupsData[k];
+                if (!g) return false;
+                if (targetType === 'deactivated') return g.name === SPECIAL_GROUPS.DEACTIVATED;
+                if (targetType === 'buffer') return g.name === SPECIAL_GROUPS.BUFFER;
+                return false;
+            });
+
+            if (!targetKey) {
+                const newName = targetType === 'deactivated' ? SPECIAL_GROUPS.DEACTIVATED : SPECIAL_GROUPS.BUFFER;
+                groupsRef.push({
+                    name: newName,
+                    kit: kitToMove,
+                    utid: utidToMove,
+                    buffer: '',
+                    status: targetType === 'deactivated' ? 'deactivated' : 'buffer',
+                    completed: false,
+                    createdBy: 'system',
+                    isNew: false
+                }).then(() => {
+                    groupsRef.child(sourceKey).update({ kit: '', utid: '', isNew: false });
+                    addLog(`📦 ${reason || 'Переміщено'} KIT "${kitToMove}" з "${sourceName}" → ${newName}`);
+                });
+            } else {
+                const targetGroup = groupsData[targetKey];
+                let newBuffer = targetGroup.buffer || '';
+                const bufferItems = newBuffer.split(',').map(s => s.trim()).filter(Boolean);
+
+                if (targetGroup.kit) {
+                    bufferItems.push(kitToMove);
+                    newBuffer = bufferItems.join(', ');
+                    groupsRef.child(targetKey).update({
+                        buffer: newBuffer,
+                        utid: utidToMove || ''
+                    });
+                } else {
+                    groupsRef.child(targetKey).update({
+                        kit: kitToMove,
+                        utid: utidToMove || ''
+                    });
+                }
+
+                groupsRef.child(sourceKey).update({ kit: '', utid: '', isNew: false });
+                const targetName = targetGroup.name || targetKey;
+                addLog(`📦 ${reason || 'Переміщено'} KIT "${kitToMove}" з "${sourceName}" → ${targetName}`);
+            }
+        }
+
+        // =====================================================
+        // Drag & Drop (для всіх)
+        // =====================================================
+        let draggedKey = null;
+
+        function setupDragDrop() {
+            // Для звичайних KIT (kit-badge)
+            document.querySelectorAll('.kit-badge[draggable="true"]').forEach(el => {
+                el.addEventListener('dragstart', function(e) {
+                    draggedKey = this.dataset.key;
+                    draggedKitCode = null; // скидаємо
+                    this.classList.add('dragging');
+                    e.dataTransfer.effectAllowed = 'move';
+                    e.dataTransfer.setData('text/plain', this.dataset.key);
+                });
+                el.addEventListener('dragend', function(e) {
+                    this.classList.remove('dragging');
+                    document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+                });
+                el.addEventListener('touchstart', handleTouchStart, { passive: true });
+                el.addEventListener('touchmove', handleTouchMove, { passive: false });
+                el.addEventListener('touchend', handleTouchEnd, { passive: false });
+            });
+
+            // Для елементів буфера (kit-item)
+            document.querySelectorAll('.kit-list .kit-item[draggable="true"]').forEach(el => {
+                el.addEventListener('dragstart', function(e) {
+                    const groupKey = this.dataset.group;
+                    const kitCode = this.dataset.kit;
+                    draggedKey = groupKey;
+                    draggedKitCode = kitCode;
+                    this.classList.add('dragging');
+                    e.dataTransfer.effectAllowed = 'move';
+                    e.dataTransfer.setData('text/plain', `buffer:${groupKey}:${kitCode}`);
+                });
+                el.addEventListener('dragend', function(e) {
+                    this.classList.remove('dragging');
+                    document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+                    // Не скидаємо draggedKitCode відразу, щоб performMove міг використати
+                });
+                // touch events для буфера
+                el.addEventListener('touchstart', handleTouchStart, { passive: true });
+                el.addEventListener('touchmove', handleTouchMove, { passive: false });
+                el.addEventListener('touchend', handleTouchEnd, { passive: false });
+            });
+
+            // Зони для drop (drop-zone, kit-container, і також сама таблиця)
+            document.querySelectorAll('.drop-zone, .kit-container, .kit-badge').forEach(el => {
+                el.addEventListener('dragover', e => e.preventDefault());
+                el.addEventListener('dragenter', e => {
+                    const t = e.target.closest('.drop-zone, .kit-container, .kit-badge');
+                    if (t) t.classList.add('drag-over');
+                });
+                el.addEventListener('dragleave', e => {
+                    const t = e.target.closest('.drop-zone, .kit-container, .kit-badge');
+                    if (t) t.classList.remove('drag-over');
+                });
+                el.addEventListener('drop', function(e) {
+                    e.preventDefault();
+                    document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+                    // Визначаємо ціль
+                    let targetKey = this.dataset.key || this.closest('[data-key]')?.dataset.key;
+                    if (!targetKey) return;
+                    // Якщо draggedKey встановлений
+                    if (draggedKey) {
+                        performMove(draggedKey, targetKey, e);
+                    }
+                    draggedKey = null;
+                    // Не скидаємо draggedKitCode тут, щоб performMove міг використати
+                });
+            });
+
+            // Додатковий обробник для самого рядка таблиці (щоб можна було кинути на будь-яке місце рядка)
+            document.querySelectorAll('#tableBody tr').forEach(row => {
+                row.addEventListener('dragover', e => e.preventDefault());
+                row.addEventListener('drop', function(e) {
+                    e.preventDefault();
+                    document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+                    const targetKey = this.querySelector('[data-key]')?.dataset.key;
+                    if (!targetKey) return;
+                    if (draggedKey) {
+                        performMove(draggedKey, targetKey, e);
+                    }
+                    draggedKey = null;
+                });
+            });
+        }
+
+        // Тач-обробники (спрощені, для мобільних)
+        let touchData = null,
+            touchClone = null;
+
+        function handleTouchStart(e) {
+            const t = e.touches[0],
+                target = e.currentTarget,
+                rect = target.getBoundingClientRect();
+            touchData = { key: target.dataset.key || target.dataset.group, rect, el: target };
+            touchClone = target.cloneNode(true);
+            touchClone.style.cssText =
+                `position:fixed;pointer-events:none;z-index:9999;opacity:0.7;transform:scale(1.05);width:${rect.width}px;left:${t.clientX - rect.width/2}px;top:${t.clientY - rect.height/2}px;`;
+            document.body.appendChild(touchClone);
+            target.classList.add('dragging');
+        }
+
+        function handleTouchMove(e) {
+            e.preventDefault();
+            if (!touchData || !touchClone) return;
+            const t = e.touches[0];
+            touchClone.style.left = (t.clientX - touchData.rect.width / 2) + 'px';
+            touchClone.style.top = (t.clientY - touchData.rect.height / 2) + 'px';
+
+            document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+            const el = document.elementsFromPoint(t.clientX, t.clientY).find(el =>
+                el.classList?.contains('drop-zone') || el.closest?.('.drop-zone') || el.closest?.('.kit-container') || el
+                .closest?.('tr')
+            );
+            if (el) {
+                const target = el.closest('.drop-zone') || el.closest('.kit-container') || el.closest('tr');
+                if (target) { target.classList.add('drag-over');
+                    touchData.currentTarget = target; }
+            } else {
+                touchData.currentTarget = null;
+            }
+        }
+
+        function handleTouchEnd(e) {
+            if (touchClone) { touchClone.remove();
+                touchClone = null; }
+            document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+            if (touchData?.currentTarget) {
+                let targetKey = touchData.currentTarget.dataset.key || touchData.currentTarget.closest('[data-key]')?.dataset
+                    .key;
+                if (!targetKey) {
+                    // Якщо кинули на рядок, шукаємо в рядку
+                    const row = touchData.currentTarget.closest('tr');
+                    if (row) targetKey = row.querySelector('[data-key]')?.dataset.key;
+                }
+                if (targetKey && touchData.key) {
+                    // Для тач-перетягування використовуємо збережений key
+                    performMove(touchData.key, targetKey, e);
+                }
+            }
+            if (touchData?.el) touchData.el.classList.remove('dragging');
+            touchData = null;
+            draggedKey = null;
+            // скидаємо draggedKitCode
+            draggedKitCode = null;
+        }
+
+        // =====================================================
+        // Головна функція переміщення (оновлена)
+        // =====================================================
+        function performMove(sourceKey, targetKey, event) {
+            const src = groupsData[sourceKey];
+            const tgt = groupsData[targetKey];
+            if (!src || !tgt) return;
+
+            const srcName = src.name || sourceKey;
+            const tgtName = tgt.name || targetKey;
+
+            const srcSpecial = isSpecialGroup(srcName);
+            const tgtSpecial = isSpecialGroup(tgtName);
+
+            // Якщо джерело - буфер, а ціль - звичайна заявка
+            if (srcSpecial && !tgtSpecial) {
+                // Визначаємо, який KIT перетягуємо
+                let kitCode = draggedKitCode;
+                if (!kitCode) {
+                    // Якщо не встановлено (наприклад, перетягували звичайний kit-badge з буфера? але там немає kit-badge)
+                    // Можливо, це основний KIT групи
+                    if (src.kit) kitCode = src.kit;
+                    else {
+                        alert('Не вдалося визначити KIT для переміщення.');
+                        return;
+                    }
+                }
+
+                // Перевіряємо, чи є такий KIT в буфері
+                const allKits = [];
+                if (src.kit) allKits.push(src.kit);
+                if (src.buffer) {
+                    const items = src.buffer.split(',').map(s => s.trim()).filter(s => s.length > 0);
+                    allKits.push(...items);
+                }
+                if (!allKits.includes(kitCode)) {
+                    alert(`KIT "${kitCode}" не знайдено в буфері!`);
+                    return;
+                }
+
+                // Запам'ятовуємо старий KIT цільової заявки (якщо є)
+                const oldKit = tgt.kit || '';
+
+                // Видаляємо KIT з буфера
+                removeKitFromBuffer(sourceKey, kitCode);
+
+                // Якщо у цільової заявки був KIT – додаємо його в буфер (в ту ж групу-джерело)
+                if (oldKit) {
+                    addKitToBuffer(sourceKey, oldKit);
+                }
+
+                // Встановлюємо новий KIT у цільову заявку
+                const updates = {};
+                updates[`${targetKey}/kit`] = kitCode;
+                updates[`${targetKey}/status`] = 'active';
+                updates[`${targetKey}/isNew`] = false;
+                groupsRef.update(updates).then(() => {
+                    addLog(
+                        `🔄 Замінено KIT у "${tgtName}": ${oldKit || 'порожньо'} → ${kitCode} (з буфера "${srcName}")`
+                        );
+                }).catch(err => alert('Помилка: ' + err.message));
+
+                // Скидаємо тимчасові дані
+                draggedKitCode = null;
+                return;
+            }
+
+            // Якщо ціль - спеціальна група (буфер або деактивовані)
+            if (tgtSpecial) {
+                const specialType = getSpecialGroupType(tgtName);
+                if (specialType === 'buffer') {
+                    moveKitToSpecialGroup(sourceKey, 'buffer', `Перетягнуто в буфер`);
+                    addLog(`🔄 Перетягнуто KIT "${src.kit}" з "${srcName}" → 📦 Буфер`);
+                    return;
+                } else if (specialType === 'deactivated') {
+                    moveKitToSpecialGroup(sourceKey, 'deactivated', `Перетягнуто в деактивовані`);
+                    addLog(`🔄 Перетягнуто KIT "${src.kit}" з "${srcName}" → 🚫 Деактивовані`);
+                    return;
+                }
+            }
+
+            // Якщо джерело - спеціальна група, а ціль - звичайна (вже оброблено вище)
+            if (srcSpecial && !tgtSpecial) {
+                // вже оброблено
+                return;
+            }
+
+            // Якщо джерело - звичайна, ціль - звичайна (переміщення між заявками)
+            if (!srcSpecial && !tgtSpecial) {
+                const kit = src.kit || '';
+                if (!kit) { alert('В джерелі немає KIT!'); return; }
+                const utid = src.utid || '';
+
+                // Перевірка прав для користувача
+                if (!isAdmin) {
+                    const srcOwner = src.createdBy || 'admin';
+                    const tgtOwner = tgt.createdBy || 'admin';
+                    if (srcOwner !== 'user') {
+                        alert('Ви можете перетягувати KIT тільки зі своїх заявок!');
+                        return;
+                    }
+                    if (tgtOwner !== 'user') {
+                        alert('Ви можете перемістити KIT тільки у свої заявки!');
+                        return;
+                    }
+                }
+
+                const updates = {};
+                updates[`${sourceKey}/kit`] = '';
+                updates[`${sourceKey}/utid`] = '';
+                updates[`${sourceKey}/isNew`] = false;
+                updates[`${targetKey}/kit`] = kit;
+                updates[`${targetKey}/utid`] = utid;
+                updates[`${targetKey}/isNew`] = false;
+
+                groupsRef.update(updates).then(() => {
+                    addLog(`🔄 Переміщено KIT "${kit}"${utid ? ' та UTID "'+utid+'"' : ''} з "${srcName}" → "${tgtName}"`);
+                }).catch(err => alert('Помилка: ' + err.message));
+                return;
+            }
+
+            // Якщо джерело - спеціальна, ціль - спеціальна (не підтримується)
+            if (srcSpecial && tgtSpecial) {
+                alert('Переміщення між спеціальними групами заборонено.');
+                return;
+            }
+        }
+
+        // =====================================================
+        // Інші операції
+        // =====================================================
+        function addGroup() {
+            const name = groupNameInput.value.trim();
+            let kit = kitCodeInput.value.trim().toUpperCase();
+            const utid = utidInput.value.trim();
+
+            if (!name) { alert('Введіть назву!'); return; }
+            if (isSpecialGroup(name)) { alert('Ця назва зарезервована для системи!'); return; }
+            if (kit && !validateKit(kit)) { showKitError(true);
+                alert('Невірний формат KIT!'); return; }
+
+            groupsRef.once('value').then(snap => {
+                const data = snap.val();
+                if (data && Object.values(data).some(g => g.name === name)) {
+                    alert(`Заявка з назвою "${name}" вже існує!`);
+                    return;
+                }
+                const creator = isAdmin ? 'admin' : 'user';
+                groupsRef.push({
+                    name,
+                    kit: kit || '',
+                    utid: utid || '',
+                    status: 'inactive',
+                    completed: false,
+                    createdBy: creator,
+                    isNew: false
+                }).then(() => {
+                    addLog(`➕ ${isAdmin ? 'Адмін' : 'Користувач'} створив заявку "${name}" | KIT: ${kit || 'без'}`);
+                    groupNameInput.value = '';
+                    kitCodeInput.value = '';
+                    utidInput.value = '';
+                    showKitError(false);
+                });
+            });
+        }
+
+        function deleteGroup(key) {
+            if (!isAdmin) return;
+            if (!confirm('Видалити заявку?')) return;
+            const name = groupsData[key]?.name || key;
+            if (isSpecialGroup(name)) {
+                if (!confirm(`Видалити системну групу "${name}" з усіма KIT?`)) return;
+            }
+            groupsRef.child(key).remove().then(() => addLog(`🗑️ Адмін видалив заявку "${name}"`));
+        }
+
+        function clearSpecialGroup(key) {
+            if (!isAdmin) return;
+            const g = groupsData[key];
+            if (!g) return;
+            const name = g.name || key;
+            if (!isSpecialGroup(name)) return;
+            if (!confirm(`Очистити групу "${name}"? Всі KIT будуть видалені.`)) return;
+            groupsRef.child(key).update({ kit: '', utid: '', buffer: '' }).then(() => {
+                addLog(`🧹 Очищено групу "${name}"`);
+            }).catch(err => alert('Помилка: ' + err.message));
+        }
+
+        function editKit(key) {
+            if (!isAdmin) return;
+            const g = groupsData[key];
+            if (!g) return;
+            if (isSpecialGroup(g.name)) { alert('Це системна група!'); return; }
+            const val = prompt('Новий KIT (KIT + 8 цифр):');
+            if (val === null) return;
+            let k = val.trim().toUpperCase();
+            if (!k) { alert('KIT не може бути порожнім!'); return; }
+            if (!k.startsWith('KIT')) k = 'KIT' + k;
+            if (!validateKit(k)) { alert('Невірний формат!'); return; }
+            const old = g.kit || 'відсутній';
+            groupsRef.child(key).update({ kit: k, isNew: false }).then(() => {
+                addLog(`✏️ Адмін змінив KIT для "${g.name || key}": ${old} → ${k}`);
+            });
+        }
+
+        function editUtid(key) {
+            if (!isAdmin) return;
+            const g = groupsData[key];
+            if (!g) return;
+            if (isSpecialGroup(g.name)) { alert('Це системна група!'); return; }
+            const val = prompt('Новий UTID:');
+            if (val === null) return;
+            const v = val.trim();
+            if (!v) { alert('UTID не може бути порожнім!'); return; }
+            const old = g.utid || 'відсутній';
+            groupsRef.child(key).update({ utid: v, isNew: false }).then(() => {
+                addLog(`🆔 Адмін змінив UTID для "${g.name || key}": ${old} → ${v}`);
+            });
+        }
+
+        function userDeleteGroup(key) {
+            if (isAdmin) return;
+            const g = groupsData[key];
+            if (!g || g.createdBy !== 'user') { alert('Це не ваша заявка!'); return; }
+            if (isSpecialGroup(g.name)) { alert('Це системна група!'); return; }
+            if (!confirm('Видалити вашу заявку?')) return;
+            const name = g.name || key;
+            groupsRef.child(key).remove().then(() => addLog(`🗑️ Користувач видалив заявку "${name}"`));
+        }
+
+        function clearLogs() {
+            if (!isAdmin) { alert('Доступ тільки для адміністратора!'); return; }
+            if (!confirm('Очистити всі логи?')) return;
+            logsRef.remove().then(() => addLog('🧹 Логи очищено'));
+        }
+
+        function logout() {
+            if (!confirm('Ви впевнені, що хочете вийти?')) return;
+            isAuthenticated = false;
+            isAdmin = false;
+            enteredPin = '';
+            appContent.classList.remove('visible');
+            loginOverlay.classList.remove('hidden');
+            updatePinDisplay();
+            loginError.textContent = '';
+            groupsRef.off();
+            logsRef.off();
+            document.querySelectorAll('.dropdown.show').forEach(el => el.classList.remove('show'));
+            currentOpenStatusMenu = null;
+        }
+
+        logoutBtn.addEventListener('click', logout);
+
+        // =====================================================
+        // Init
+        // =====================================================
+        function initApp() {
+            isAdmin = currentRole === 'admin';
+            panelTitle.textContent = isAdmin ? 'Управління заявками' : 'Мої заявки (всі)';
+            dragInstruction.style.display = 'block';
+
+            groupsRef.on('value', renderGroups);
+            logsRef.on('value', renderLogs);
+
+            addBtn.addEventListener('click', addGroup);
+            refreshBtn.addEventListener('click', () => {
+                addLog('🔄 Оновлення');
+                groupsRef.once('value', renderGroups);
+                logsRef.once('value', renderLogs);
+            });
+            clearLogsBtn.addEventListener('click', clearLogs);
+
+            [groupNameInput, kitCodeInput, utidInput].forEach(el => {
+                el.addEventListener('keydown', e => { if (e.key === 'Enter') addGroup(); });
+            });
+
+            addLog('🚀 StarLink Service Desk активовано');
+
+            // Створюємо спеціальні групи, якщо їх немає
+            setTimeout(() => {
+                groupsRef.once('value').then(snap => {
+                    const data = snap.val();
+                    if (data) {
+                        const hasBuffer = Object.values(data).some(g => g.name === SPECIAL_GROUPS.BUFFER);
+                        const hasDeactivated = Object.values(data).some(g => g.name === SPECIAL_GROUPS
+                            .DEACTIVATED);
+
+                        if (!hasBuffer) {
+                            groupsRef.push({
+                                name: SPECIAL_GROUPS.BUFFER,
+                                kit: '',
+                                utid: '',
+                                buffer: '',
+                                status: 'buffer',
+                                completed: false,
+                                createdBy: 'system',
+                                isNew: false
+                            }).then(() => addLog('📦 Створено системну групу "Буфер"'));
+                        }
+                        if (!hasDeactivated) {
+                            groupsRef.push({
+                                name: SPECIAL_GROUPS.DEACTIVATED,
+                                kit: '',
+                                utid: '',
+                                buffer: '',
+                                status: 'deactivated',
+                                completed: false,
+                                createdBy: 'system',
+                                isNew: false
+                            }).then(() => addLog('🚫 Створено системну групу "Деактивовані"'));
+                        }
+                    }
+                });
+            }, 1000);
+        }
+
+        console.log('StarLink Service Desk готовий');
+    </script>
+</body>
+</html>
