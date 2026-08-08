@@ -1,5 +1,9 @@
 # 🛰️ StarDesk — StarLink Service Desk
 
+<a href="https://carbon6600.github.io/stardesk/" target="_blank" rel="noopener noreferrer">
+    <img width="539" height="380" alt="image" src="https://github.com/user-attachments/assets/1264e31c-3060-440c-a7b7-34477afa82d6" />
+</a>
+
 **StarDesk** — це веб-система для управління заявками, KIT-кодами та UTID-ідентифікаторами в екосистемі StarLink. Вона створена для зручного обліку активних, буферних та деактивованих ліцензій, з можливістю зміни статусів, перетягування (drag-and-drop) і повного логування дій.
 
 Проект повністю адаптований для роботи на **мобільних пристроях**, зокрема на смартфонах **Redmi** (та інших на Android), завдяки гнучкому адаптивному дизайну.
